@@ -2,6 +2,7 @@ package com.kgpexample.camerapreviewandcapture
 
 import android.Manifest
 import android.content.Context
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
@@ -10,12 +11,12 @@ import android.hardware.camera2.*
 import android.hardware.camera2.params.OutputConfiguration
 import android.hardware.camera2.params.SessionConfiguration
 import android.media.ImageReader
-import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
 import android.os.Handler
 import android.os.HandlerThread
 import android.util.Log
 import android.view.SurfaceHolder
+import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import com.kgpexample.camerapreviewandcapture.databinding.ActivityMainBinding
 import java.io.File
@@ -82,13 +83,17 @@ class MainActivity : AppCompatActivity() {
                 val bitmap = BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
 
                 mainExecutor.execute {
-                    saveImage(bitmap)
+                    val path = saveImage(bitmap)
+
+                    val intent = Intent(this@MainActivity, ViewerActivity::class.java)
+                    intent.putExtra("path", path)
+                    startActivity(intent)
                 }
             }
         }
     }
 
-    private val captureCallback = object: CameraCaptureSession.CaptureCallback() {
+    private val captureCallback = object : CameraCaptureSession.CaptureCallback() {
         override fun onCaptureCompleted(session: CameraCaptureSession, request: CaptureRequest, result: TotalCaptureResult) {
             super.onCaptureCompleted(session, request, result)
             cameraSession = session
@@ -103,7 +108,7 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun saveImage(bitmap: Bitmap) {
+    private fun saveImage(bitmap: Bitmap): String {
         val savePath = filesDir.absolutePath + "/temp.png"
 
         try {
@@ -121,6 +126,7 @@ class MainActivity : AppCompatActivity() {
         } catch (e: Exception) {
             e.printStackTrace()
         }
+        return savePath
     }
 
 
@@ -152,9 +158,7 @@ class MainActivity : AppCompatActivity() {
             }
 
             val captureRequest = captureRequestBuilder.build()
-
             cameraSession.capture(captureRequest, captureCallback, cameraHandler)
-
 
         } catch (e: CameraAccessException) {
             e.printStackTrace()
@@ -167,7 +171,6 @@ class MainActivity : AppCompatActivity() {
         previewBuilder.addTarget(surfaceHolder.surface)
         val previewConfig = OutputConfiguration(surfaceHolder.surface)
         val captureConfig = OutputConfiguration(imageReader.surface)
-
 
         val sessionConfiguration = SessionConfiguration(
             SessionConfiguration.SESSION_REGULAR,
@@ -199,6 +202,7 @@ class MainActivity : AppCompatActivity() {
             }
             val captureSize = availableSize[0]
 
+            //preview와 캡처사이 resolution 싱크되지않았음.
             imageReader = ImageReader.newInstance(captureSize.width, captureSize.height, ImageFormat.JPEG, 3)
             imageReader.setOnImageAvailableListener(imageAvailableListenerForCapture, cameraHandler)
 
@@ -232,8 +236,6 @@ class MainActivity : AppCompatActivity() {
             }
 
         })
-
-
     }
 
     private fun requestPermission() {
